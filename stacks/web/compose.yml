@@ -8,5 +8,5 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./site:/srv/site:ro
-      - ./caddy/data:/data
-      - ./caddy/config:/config
+      - /home/github-runner/persist/caddy/data:/data
+      - /home/github-runner/persist/caddy/config:/config
