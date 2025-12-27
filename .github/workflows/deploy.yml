@@ -1,0 +1,19 @@
+name: Deploy homelab
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "stacks/**"
+      - "scripts/**"
+      - ".github/workflows/deploy.yml"
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, Linux, homelab]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy
+        run: ./scripts/deploy.sh
