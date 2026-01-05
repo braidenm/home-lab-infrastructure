@@ -22,6 +22,13 @@ jobs:
     name: Deploy to homelab
     runs-on: [self-hosted, Linux, X64, homelab]
     timeout-minutes: 10
+    env:
+      # These secrets must be configured in GitHub Repository Settings
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      MONGO_ROOT_USER: ${{ secrets.MONGO_ROOT_USER }}
+      MONGO_ROOT_PASSWORD: ${{ secrets.MONGO_ROOT_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -44,12 +51,6 @@ jobs:
 
       - name: Deploy
         shell: bash
-        env:
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          MONGO_ROOT_USER: ${{ secrets.MONGO_ROOT_USER }}
-          MONGO_ROOT_PASSWORD: ${{ secrets.MONGO_ROOT_PASSWORD }}
         run: |
           set -euo pipefail
           chmod +x ./scripts/deploy.sh
