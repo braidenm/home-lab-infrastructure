@@ -32,6 +32,7 @@ jobs:
           persist-credentials: false
 
       - name: Sanity checks
+        shell: bash
         run: |
           set -euo pipefail
           echo "Runner user: $(whoami)"
@@ -42,7 +43,64 @@ jobs:
           docker compose version
 
       - name: Deploy
+        shell: bash
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          MONGO_ROOT_USER: ${{ secrets.MONGO_ROOT_USER }}
+          MONGO_ROOT_PASSWORD: ${{ secrets.MONGO_ROOT_PASSWORD }}
         run: |
           set -euo pipefail
           chmod +x ./scripts/deploy.sh
           ./scripts/deploy.sh
+
+      - name: Verify Deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAX_RETRIES=5
+          BASE_INTERVAL=2
+          
+          echo "==> Verifying Container Health"
+          SERVICES=("caddy" "postgres" "mongodb")
+          for service in "${SERVICES[@]}"; do
+            echo "   Checking $service..."
+            for ((i=1; i<=MAX_RETRIES; i++)); do
+              STATUS=$(docker inspect --format='{{.State.Status}}' "$service" 2>/dev/null || echo "not_found")
+              if [ "$STATUS" == "running" ]; then
+                echo "   ✅ $service is running"
+                break
+              fi
+              
+              if [ "$i" -eq "$MAX_RETRIES" ]; then
+                echo "   ❌ $service is NOT running after $MAX_RETRIES attempts (Status: $STATUS)"
+                docker logs "$service" --tail 20 || true
+                exit 1
+              fi
+              
+              WAIT=$((i * BASE_INTERVAL))
+              echo "      (Attempt $i/$MAX_RETRIES) $service is $STATUS. Retrying in ${WAIT}s..."
+              sleep "$WAIT"
+            done
+          done
+          
+          echo "==> Verifying Web Service Response"
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+            # Caddy is mapped to 127.0.0.1:8080 on the host
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080 || echo "000")
+            if [ "$HTTP_CODE" == "200" ]; then
+              echo "   ✅ Web service is healthy (HTTP 200)"
+              break
+            fi
+            
+            if [ "$i" -eq "$MAX_RETRIES" ]; then
+              echo "   ❌ Web service health check failed after $MAX_RETRIES attempts (HTTP $HTTP_CODE)"
+              docker logs caddy --tail 20 || true
+              exit 1
+            fi
+            
+            WAIT=$((i * BASE_INTERVAL))
+            echo "      (Attempt $i/$MAX_RETRIES) HTTP $HTTP_CODE. Retrying in ${WAIT}s..."
+            sleep "$WAIT"
+          done

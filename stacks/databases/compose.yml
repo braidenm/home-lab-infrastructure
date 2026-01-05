@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - /data/db/postgres:/var/lib/postgresql/data
+      - /data/logs/postgres:/var/log/postgresql
+    command: ["postgres", "-c", "logging_collector=on", "-c", "log_directory=/var/log/postgresql", "-c", "log_filename=postgresql-%a.log", "-c", "log_rotation_age=1d", "-c", "log_rotation_size=0", "-c", "log_truncate_on_rotation=on"]
+    networks:
+      - shared-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    volumes:
+      - /data/db/mongodb:/data/db
+      - /data/logs/mongodb:/var/log/mongodb
+    command: ["mongod", "--logpath", "/var/log/mongodb/mongod.log", "--logappend"]
+    networks:
+      - shared-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  shared-net:
+    external: true
