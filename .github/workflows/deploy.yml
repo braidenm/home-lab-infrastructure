@@ -21,9 +21,11 @@ jobs:
   deploy:
     name: Deploy to homelab
     runs-on: [self-hosted, Linux, X64, homelab]
+    environment: homelab
     timeout-minutes: 10
     env:
-      # These secrets must be configured in GitHub Repository Settings
+      # These secrets are configured in GitHub Environment: homelab
+      # Settings > Environments > homelab > Environment secrets
       POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
       POSTGRES_DB: ${{ secrets.POSTGRES_DB }}

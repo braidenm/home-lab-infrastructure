@@ -85,6 +85,12 @@ Since the data is bind-mounted to `/data/db`, you can back up the entire databas
 
 ## Troubleshooting
 
+### "Required environment variables are missing or empty"
+If you see this error in GitHub Actions:
+1.  **Check Secret Type**: Ensure you added them under the **Secrets** tab, NOT the **Variables** tab.
+2.  **Check Scope**: If you defined them within an **Environment** (e.g., "production"), you must update `.github/workflows/deploy.yml` to include `environment: production` in the `deploy` job.
+3.  **Typos**: Ensure the names match exactly (e.g., `POSTGRES_PASSWORD`).
+
 ### "Host not found" or "Connection refused"
 1.  **Check Network**: Ensure your app container has `networks: [shared-net]` defined.
 2.  **Check External Flag**: Ensure the network is defined as `external: true` in your `compose.yml`.

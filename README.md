@@ -48,6 +48,9 @@ After deployment to the server, the system performs real-time checks with automa
 - **Container Health**: Verifies that `caddy`, `postgres`, and `mongodb` are in a `running` state.
 - **Connectivity**: Performs a local HTTP probe to ensure the site is being served correctly.
 
+### ⚠️ Common Issue: Missing Secrets
+If the deployment fails with "environment variables are missing", verify that your GitHub Secrets are in the **Secrets** tab (not Variables) and are at the **Repository level**. If using **Environment secrets**, you must update the `deploy.yml` job accordingly.
+
 ## 📈 Roadmap & Future Evolution
 
 This system is designed to evolve from a lightweight setup into a robust, enterprise-grade home infrastructure.

@@ -34,7 +34,11 @@ validate_secrets() {
     local required_vars=("POSTGRES_USER" "POSTGRES_PASSWORD" "POSTGRES_DB" "MONGO_ROOT_USER" "MONGO_ROOT_PASSWORD")
     
     for var in "${required_vars[@]}"; do
-        if [ -z "${!var:-}" ]; then
+        # Robust indirect expansion to check if variable is set and non-empty
+        # Using eval to support older bash and respect set -u
+        local val
+        val=$(eval "echo \"\${$var:-}\"")
+        if [ -z "$val" ]; then
             missing_vars+=("$var")
         fi
     done
@@ -45,8 +49,13 @@ validate_secrets() {
             echo "   - $var"
         done
         echo ""
-        echo "Please ensure these secrets are configured in your GitHub repository settings"
-        echo "under Settings > Secrets and variables > Actions."
+        echo "💡 Troubleshooting Checklist:"
+        echo "1. GitHub Secrets vs Variables: Ensure they are in the 'Secrets' tab, NOT the 'Variables' tab."
+        echo "2. Scope: If you used 'Environment' secrets, you must add 'environment: <name>' to your deploy.yml job."
+        echo "3. Repository Secrets: Go to Settings > Secrets and variables > Actions > Repository secrets."
+        echo "4. Typo: Double check that the secret names match exactly (case-sensitive)."
+        echo "5. Organization Secrets: If using Org secrets, ensure this repository is granted access."
+        echo ""
         exit 1
     fi
 }
