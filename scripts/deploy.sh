@@ -28,6 +28,32 @@ ensure_dir() {
     fi
 }
 
+# Validate required environment variables for the database stack
+validate_secrets() {
+    local missing_vars=()
+    local required_vars=("POSTGRES_USER" "POSTGRES_PASSWORD" "POSTGRES_DB" "MONGO_ROOT_USER" "MONGO_ROOT_PASSWORD")
+    
+    for var in "${required_vars[@]}"; do
+        if [ -z "${!var:-}" ]; then
+            missing_vars+=("$var")
+        fi
+    done
+
+    if [ ${#missing_vars[@]} -ne 0 ]; then
+        echo "❌ Error: The following required environment variables are missing or empty:"
+        for var in "${missing_vars[@]}"; do
+            echo "   - $var"
+        done
+        echo ""
+        echo "Please ensure these secrets are configured in your GitHub repository settings"
+        echo "under Settings > Secrets and variables > Actions."
+        exit 1
+    fi
+}
+
+echo "==> Validating secrets"
+validate_secrets
+
 echo "==> Ensuring log directories exist"
 for dir in /data/logs/caddy /data/logs/postgres /data/logs/mongodb; do
     ensure_dir "$dir"
