@@ -40,7 +40,8 @@ To ensure infrastructure stability, every change undergoes two levels of verific
 When a Pull Request is opened, GitHub Actions automatically validates:
 - **Docker Compose Syntax**: Checks all `compose.yml` files for structural errors.
 - **Caddyfile Validation**: Uses the official Caddy binary to verify reverse proxy configurations.
-- **Script Linting**: Checks `deploy.sh` for bash syntax errors.
+- **Script Linting**: Uses `shellcheck` to ensure `deploy.sh` follows best practices.
+- **Infrastructure Smoke Test**: Spins up the entire stack in an ephemeral environment on the GitHub runner to verify that all containers start correctly and the web gateway responds to requests.
 
 ### 2. Post-Deployment Verification
 After deployment to the server, the system performs real-time checks with automatic retries:

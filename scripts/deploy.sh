@@ -8,21 +8,33 @@ STATE_FILE="$STATE_DIR/last_deploy_hashes"
 echo "==> Ensuring shared network exists"
 docker network inspect shared-net >/dev/null 2>&1 || docker network create shared-net
 
-echo "==> Ensuring log directories exist"
-# Only run sudo if directories are missing
-for dir in /data/logs/caddy /data/logs/postgres /data/logs/mongodb; do
+# Helper to ensure directory exists with correct permissions
+# It tries standard mkdir first, then falls back to Docker if permission is denied.
+# This avoids sudo password prompts on self-hosted runners.
+ensure_dir() {
+    local dir=$1
     if [ ! -d "$dir" ]; then
-        echo "   Creating $dir"
-        sudo mkdir -p "$dir"
-        sudo chmod 777 "$dir"
+        echo "   Ensuring $dir exists..."
+        if mkdir -p "$dir" 2>/dev/null; then
+            chmod 777 "$dir" 2>/dev/null || true
+        else
+            echo "   Permission denied for mkdir, attempting via Docker fallback..."
+            # Use docker to create the directory since the runner is in the docker group
+            docker run --rm -v /data:/data alpine sh -c "mkdir -p $dir && chmod 777 $dir" || {
+                echo "   Error: Failed to create $dir. Please ensure the runner user has write permissions to /data or configure passwordless sudo."
+                exit 1
+            }
+        fi
     fi
+}
+
+echo "==> Ensuring log directories exist"
+for dir in /data/logs/caddy /data/logs/postgres /data/logs/mongodb; do
+    ensure_dir "$dir"
 done
 
 # Prepare state directory for idempotency checks
-if [ ! -d "$STATE_DIR" ]; then
-    sudo mkdir -p "$STATE_DIR"
-    sudo chmod 777 "$STATE_DIR"
-fi
+ensure_dir "$STATE_DIR"
 touch "$STATE_FILE"
 
 deploy_stack() {
