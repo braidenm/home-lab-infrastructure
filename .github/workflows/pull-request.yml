@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
       - name: Validate Infrastructure
         shell: bash
         run: |
@@ -31,4 +34,75 @@ jobs:
           docker run --rm -v $(pwd)/stacks/web/Caddyfile:/etc/caddy/Caddyfile caddy:2 caddy validate --config /etc/caddy/Caddyfile
 
           echo "==> Validating Deployment Script"
+          shellcheck scripts/deploy.sh
           bash -n scripts/deploy.sh
+
+  smoke-test:
+    name: Smoke Test
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Startup Test
+        shell: bash
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+          MONGO_ROOT_USER: root
+          MONGO_ROOT_PASSWORD: root_password
+        run: |
+          set -euo pipefail
+          
+          echo "==> Preparing mock environment"
+          # Create directories that containers expect on the host
+          sudo mkdir -p /data/db/postgres /data/logs/postgres /data/db/mongodb /data/logs/mongodb /data/logs/caddy
+          sudo mkdir -p /home/github-runner/persist/caddy/data /home/github-runner/persist/caddy/config
+          sudo chmod -R 777 /data /home/github-runner
+          
+          # Create the shared network
+          docker network create shared-net
+          
+          echo "==> Starting Infrastructure"
+          docker compose -f stacks/databases/compose.yml up -d
+          docker compose -f stacks/web/compose.yml up -d
+          
+          echo "==> Verifying Container Health"
+          SERVICES=("caddy" "postgres" "mongodb")
+          MAX_RETRIES=10
+          for service in "${SERVICES[@]}"; do
+            echo "   Checking $service..."
+            for ((i=1; i<=MAX_RETRIES; i++)); do
+              STATUS=$(docker inspect --format='{{.State.Status}}' "$service" 2>/dev/null || echo "not_found")
+              if [ "$STATUS" == "running" ]; then
+                echo "   ✅ $service is running"
+                break
+              fi
+              
+              if [ "$i" -eq "$MAX_RETRIES" ]; then
+                echo "   ❌ $service failed to start (Status: $STATUS)"
+                docker logs "$service" || true
+                exit 1
+              fi
+              echo "      (Attempt $i/$MAX_RETRIES) $service is $STATUS. Waiting 2s..."
+              sleep 2
+            done
+          done
+          
+          echo "==> Verifying Web Response"
+          # Caddy is mapped to 127.0.0.1:8080 on the host in compose.yml
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080 || echo "000")
+          if [ "$HTTP_CODE" == "200" ]; then
+            echo "   ✅ Web service is healthy (HTTP 200)"
+          else
+            echo "   ❌ Web service returned HTTP $HTTP_CODE"
+            docker logs caddy
+            exit 1
+          fi
+
+          echo "==> Cleaning up"
+          docker compose -f stacks/web/compose.yml down
+          docker compose -f stacks/databases/compose.yml down
+          docker network rm shared-net

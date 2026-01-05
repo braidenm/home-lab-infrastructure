@@ -94,10 +94,12 @@ services:
 ```
 
 **B. Update `scripts/deploy.sh`**
-Add your new log directory to the `mkdir` command in the deployment script to ensure it is created with the correct permissions on the host.
+Add your new log directory to the loop in the deployment script. The script is designed to automatically handle directory creation using a Docker-based fallback if the runner user lacks direct write permissions to `/data`.
 
 ```bash
-sudo mkdir -p /data/logs/caddy /data/logs/postgres /data/logs/mongodb /data/logs/my-app
+for dir in /data/logs/caddy /data/logs/postgres /data/logs/mongodb /data/logs/my-app; do
+    ensure_dir "$dir"
+done
 ```
 
 **C. Configure App Rotation**
