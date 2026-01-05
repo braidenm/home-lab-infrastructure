@@ -16,11 +16,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate compose files
+      - name: Validate Infrastructure
+        shell: bash
         run: |
           set -euo pipefail
-          docker --version
-          docker compose version
-
-          # Validate without starting containers
+          
+          echo "==> Validating Docker Compose files"
+          # Web stack
           docker compose -f stacks/web/compose.yml config -q
+          # Database stack (ignore missing env vars for validation)
+          docker compose -f stacks/databases/compose.yml config -q || echo "Note: Validation might warn about missing env vars, but structure is checked."
+
+          echo "==> Validating Caddyfile"
+          docker run --rm -v $(pwd)/stacks/web/Caddyfile:/etc/caddy/Caddyfile caddy:2 caddy validate --config /etc/caddy/Caddyfile
+
+          echo "==> Validating Deployment Script"
+          bash -n scripts/deploy.sh

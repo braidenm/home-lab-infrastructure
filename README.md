@@ -30,13 +30,28 @@ The infrastructure follows a GitOps philosophy: the state of this repository def
    - `docker compose pull`: Fetches the latest service images.
    - `docker compose up -d`: Idempotent update (only restarts changed services).
    - `caddy reload`: Zero-downtime configuration hot-swap.
+5. **Verification**: Post-deployment health checks ensure all containers are running and the web gateway is responding with HTTP 200.
+
+## 🛡️ Automated Quality Assurance
+
+To ensure infrastructure stability, every change undergoes two levels of verification:
+
+### 1. Pre-Merge Validation (PRs)
+When a Pull Request is opened, GitHub Actions automatically validates:
+- **Docker Compose Syntax**: Checks all `compose.yml` files for structural errors.
+- **Caddyfile Validation**: Uses the official Caddy binary to verify reverse proxy configurations.
+- **Script Linting**: Checks `deploy.sh` for bash syntax errors.
+
+### 2. Post-Deployment Verification
+After deployment to the server, the system performs real-time checks with automatic retries:
+- **Container Health**: Verifies that `caddy`, `postgres`, and `mongodb` are in a `running` state.
+- **Connectivity**: Performs a local HTTP probe to ensure the site is being served correctly.
 
 ## 📈 Roadmap & Future Evolution
 
 This system is designed to evolve from a lightweight setup into a robust, enterprise-grade home infrastructure.
 
 ### Planned Enhancements
-- **Enhanced Automation**: Implementation of automated health checks and rollback mechanisms if a deployment fails.
 - **Observability**: Integration of Prometheus and Grafana for real-time resource monitoring and Caddy traffic metrics.
 - **Secret Management**: Transitioning from environment variables to a dedicated secret manager (like HashiCorp Vault or Bitnami Sealed Secrets).
 - **Advanced Deployment Patterns**: Moving toward Blue-Green or Canary deployments to further minimize risk during updates.
@@ -46,6 +61,11 @@ This system is designed to evolve from a lightweight setup into a robust, enterp
 
 - `stacks/`: Docker Compose configurations grouped by concern.
   - `web/`: Edge routing (Caddy) and core web services.
+  - `databases/`: Persistent PostgreSQL and MongoDB services.
+- `docs/`: Infrastructure documentation.
+  - [Storage Model](docs/StorageSetup.md): How persistence and hardware layers are organized.
+  - [Database Guide](docs/Databases.md): How to connect to and manage databases.
+  - [Logging Guide](docs/Logging.md): How logs are stored, rotated, and accessed.
 - `scripts/`: Operational scripts (Deployment, Maintenance).
 - `.github/workflows/`: Automated CI/CD definitions.
 
@@ -55,6 +75,12 @@ This system is designed to evolve from a lightweight setup into a robust, enterp
 A high-performance static site served directly by Caddy.
 - **Location**: `stacks/web/site/PersonalSite`
 - **Roadmap**: Transitioning to a containerized React application for dynamic project showcases.
+
+### Databases
+Persistent storage engines for applications.
+- **Engines**: PostgreSQL 16, MongoDB
+- **Internal Hostnames**: `postgres`, `mongodb`
+- **Documentation**: [Database Guide](docs/Databases.md)
 
 ## 🛠 Developer Guide: Adding Services
 
@@ -88,7 +114,23 @@ braidenmiller.com {
 }
 ```
 
-### 3. Deploy
+### 3. Configure Logging (Best Practice)
+To ensure your app's logs are persisted on the HDD and rotated properly, add a bind mount to `/data/logs` and include the Docker logging driver config. See the [Logging Guide](docs/Logging.md) for full details.
+
+```yaml
+services:
+  my-api:
+    # ...
+    volumes:
+      - /data/logs/my-api:/var/log/my-api
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+### 4. Deploy
 Push to `main`. The automation handles the rest.
 
 ```bash

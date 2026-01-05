@@ -5,8 +5,20 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:80"
+    networks:
+      - shared-net
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./site:/srv/site:ro
       - /home/github-runner/persist/caddy/data:/data
       - /home/github-runner/persist/caddy/config:/config
+      - /data/logs/caddy:/var/log/caddy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  shared-net:
+    external: true
